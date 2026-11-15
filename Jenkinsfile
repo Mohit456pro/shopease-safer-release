@@ -66,10 +66,15 @@ pipeline {
         stage('Deploy to Production') {
             steps {
                 script {
-                    def previous = sh(script: "docker inspect --format '{{.Config.Image}}' shopease-prod 2>/dev/null || true", returnStdout: true).trim()
-                    env.PREVIOUS_IMAGE = previous ?: 'none'
-                    echo 'Production currently runs: ' + env.PREVIOUS_IMAGE
-                    deploy('shopease-prod', 8082, env.IMAGE, params.SIMULATE_BAD_RELEASE == true)
+                 def previous = sh(script: """
+                docker images --format '{{.Repository}}:{{.Tag}}' | \
+                grep '^shopease/order-service:' | \
+                grep -v ':${env.BUILD_NUMBER}\$' | \
+                head -n 1 || true
+            """, returnStdout: true).trim()
+            env.PREVIOUS_IMAGE = previous ?: 'none'
+            echo 'Rollback image will be: ' + env.PREVIOUS_IMAGE
+            deploy('shopease-prod', 8082, env.IMAGE, params.SIMULATE_BAD_RELEASE == true)
                 }
             }
         }
